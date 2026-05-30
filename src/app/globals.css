@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+    overscroll-behavior: none;
+  }
+
+  input,
+  textarea,
+  button {
+    @apply outline-none;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply border border-slate-800/80 bg-slate-900/40 backdrop-blur-xl;
+  }
+
+  .glow-ring:focus-within {
+    @apply border-indigo-500/60 shadow-glow;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
