@@ -9,7 +9,8 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ showLogout = true }: ProfileCardProps) {
-  const { currentUser, logout } = useEclipse();
+  const { currentUser, logout, notificationsEnabled, enableNotifications } =
+    useEclipse();
   if (!currentUser) return null;
 
   return (
@@ -34,11 +35,20 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
             <p className="text-sm text-cyan-400/80">@{currentUser.username}</p>
           </div>
         </div>
+        {showLogout && !notificationsEnabled && (
+          <button
+            type="button"
+            onClick={() => enableNotifications()}
+            className="mt-4 w-full rounded-xl border border-indigo-500/40 bg-indigo-950/30 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-950/50 active:scale-[0.98]"
+          >
+            Enable message notifications
+          </button>
+        )}
         {showLogout && (
           <button
             type="button"
             onClick={() => logout()}
-            className="mt-4 w-full rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-300 transition hover:border-slate-600 hover:bg-slate-800/50 active:scale-[0.98]"
+            className="mt-3 w-full rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-300 transition hover:border-slate-600 hover:bg-slate-800/50 active:scale-[0.98]"
           >
             Sign out
           </button>

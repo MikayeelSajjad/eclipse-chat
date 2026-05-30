@@ -8,7 +8,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ onSelect }: ConversationListProps) {
-  const { currentUser, conversations, activePeerId, openConversation } =
+  const { currentUser, conversations, activePeerId, openConversation, isPeerUnread } =
     useEclipse();
 
   if (!currentUser) return null;
@@ -29,6 +29,7 @@ export function ConversationList({ onSelect }: ConversationListProps) {
           conversations.map((conv) => {
             const isActive = activePeerId === conv.peerId;
             const last = conv.lastMessage;
+            const unread = isPeerUnread(conv.peerId);
 
             return (
               <li key={conv.peerId}>
@@ -50,8 +51,11 @@ export function ConversationList({ onSelect }: ConversationListProps) {
                     size="md"
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="truncate font-medium text-slate-100 block">
+                    <span className="truncate font-medium text-slate-100 flex items-center gap-2">
                       {conv.peer.username}
+                      {unread && !isActive && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-400" />
+                      )}
                     </span>
                     <p className="truncate text-sm text-slate-500">
                       {last?.content ?? "Start a conversation"}

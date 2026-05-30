@@ -10,7 +10,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ showBack, onBack }: ChatHeaderProps) {
-  const { getActiveFriend, activePeerId } = useEclipse();
+  const { getActiveFriend, activePeerId, liveConnected } = useEclipse();
   const friend = getActiveFriend();
 
   if (!activePeerId || !friend) {
@@ -40,7 +40,12 @@ export function ChatHeader({ showBack, onBack }: ChatHeaderProps) {
       />
       <div className="min-w-0 flex-1">
         <h2 className="truncate font-semibold text-slate-100">{friend.username}</h2>
-        <p className="text-xs text-slate-500">@{friend.username}</p>
+        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+          {liveConnected && (
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+          )}
+          {liveConnected ? "Live" : "Connecting..."}
+        </p>
       </div>
     </header>
   );

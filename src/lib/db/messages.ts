@@ -25,6 +25,35 @@ export async function insertMessage(
   };
 }
 
+export async function getMessagesSince(
+  userId: string,
+  peerId: string,
+  since: number
+): Promise<DbMessage[]> {
+  const result = await getClient().execute({
+    sql: `SELECT id, sender_id, receiver_id, content, created_at FROM messages
+          WHERE ((sender_id = ? AND receiver_id = ?)
+             OR (sender_id = ? AND receiver_id = ?))
+            AND created_at > ?
+          ORDER BY created_at ASC`,
+    args: [userId, peerId, peerId, userId, since],
+  });
+  return result.rows.map(rowToMessage);
+}
+
+export async function getIncomingMessagesSince(
+  userId: string,
+  since: number
+): Promise<DbMessage[]> {
+  const result = await getClient().execute({
+    sql: `SELECT id, sender_id, receiver_id, content, created_at FROM messages
+          WHERE receiver_id = ? AND created_at > ?
+          ORDER BY created_at ASC`,
+    args: [userId, since],
+  });
+  return result.rows.map(rowToMessage);
+}
+
 export async function getMessagesBetween(
   userId: string,
   peerId: string

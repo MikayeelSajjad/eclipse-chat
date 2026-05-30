@@ -20,7 +20,7 @@ export function EclipseApp() {
     mobileTab,
     activePeerId,
     sendMessage,
-    setTyping,
+    pingTyping,
   } = useEclipse();
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export function EclipseApp() {
           <ChatFeed />
           <ChatInput
             onSend={sendMessage}
-            onTyping={() => activePeerId && setTyping(activePeerId, true)}
+            onTyping={() => activePeerId && pingTyping(activePeerId)}
             disabled={!activePeerId}
           />
         </main>

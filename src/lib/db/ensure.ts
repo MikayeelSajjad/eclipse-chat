@@ -29,6 +29,12 @@ const SCHEMA_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_friends_sender ON friends(sender_id)`,
   `CREATE INDEX IF NOT EXISTS idx_friends_receiver ON friends(receiver_id)`,
+  `CREATE TABLE IF NOT EXISTS typing_status (
+    user_id TEXT NOT NULL,
+    peer_id TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, peer_id)
+  )`,
 ];
 
 let schemaReady: Promise<void> | null = null;

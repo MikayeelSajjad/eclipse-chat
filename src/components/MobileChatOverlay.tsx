@@ -11,7 +11,7 @@ export function MobileChatOverlay() {
     setActivePeer,
     sendMessage,
     setMobileTab,
-    setTyping,
+    pingTyping,
   } = useEclipse();
 
   if (!activePeerId) return null;
@@ -27,7 +27,7 @@ export function MobileChatOverlay() {
       <ChatFeed />
       <ChatInput
         onSend={sendMessage}
-        onTyping={() => setTyping(activePeerId, true)}
+        onTyping={() => pingTyping(activePeerId)}
       />
     </div>
   );
