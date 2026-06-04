@@ -10,6 +10,7 @@ export {
   searchUsers,
   updateUserPublicKey,
   updateUserNitro,
+  updateUserRole,
   getPublicKey,
   findUserByLsSubscriptionId,
 } from "./users";

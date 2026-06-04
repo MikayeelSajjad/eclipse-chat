@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY NOT NULL,
   username TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
-  avatar_url TEXT
+  avatar_url TEXT,
+  role TEXT NOT NULL DEFAULT 'member'
 );
 
 CREATE TABLE IF NOT EXISTS messages (

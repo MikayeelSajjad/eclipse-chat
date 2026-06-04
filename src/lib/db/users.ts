@@ -3,7 +3,7 @@ import { rowToUser } from "./rows";
 import { rowToPublicUser, type DbUser, type NitroTier } from "./types";
 
 const USER_SELECT = `SELECT id, username, password, avatar_url,
-  public_key, nitro_tier,
+  public_key, nitro_tier, role,
   COALESCE(ls_customer_id, stripe_customer_id) AS ls_customer_id,
   COALESCE(ls_subscription_id, stripe_subscription_id) AS ls_subscription_id
   FROM users`;
@@ -37,8 +37,8 @@ export async function createUser(
 ) {
   const normalized = username.trim().toLowerCase();
   await getClient().execute({
-    sql: `INSERT INTO users (id, username, password, avatar_url, public_key, nitro_tier)
-          VALUES (?, ?, ?, ?, ?, 'none')`,
+    sql: `INSERT INTO users (id, username, password, avatar_url, public_key, nitro_tier, role)
+          VALUES (?, ?, ?, ?, ?, 'none', 'member')`,
     args: [id, normalized, password, avatarUrl, publicKey],
   });
   return rowToPublicUser({
@@ -73,6 +73,16 @@ export async function updateUserNitro(
     sql: `UPDATE users SET nitro_tier = ?, ls_customer_id = ?, ls_subscription_id = ?
           WHERE id = ?`,
     args: [tier, lsCustomerId, lsSubscriptionId, userId],
+  });
+}
+
+export async function updateUserRole(
+  userId: string,
+  role: "admin" | "member"
+): Promise<void> {
+  await getClient().execute({
+    sql: "UPDATE users SET role = ? WHERE id = ?",
+    args: [role, userId],
   });
 }
 

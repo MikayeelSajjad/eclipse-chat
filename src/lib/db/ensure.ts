@@ -5,7 +5,8 @@ const BASE_TABLES = [
     id TEXT PRIMARY KEY NOT NULL,
     username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    avatar_url TEXT
+    avatar_url TEXT,
+    role TEXT NOT NULL DEFAULT 'member'
   )`,
   `CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY NOT NULL,
@@ -65,6 +66,7 @@ const BASE_TABLES = [
 const MIGRATION_STATEMENTS = [
   "ALTER TABLE users ADD COLUMN public_key TEXT",
   "ALTER TABLE users ADD COLUMN nitro_tier TEXT DEFAULT 'none'",
+  "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'",
   "ALTER TABLE users ADD COLUMN ls_customer_id TEXT",
   "ALTER TABLE users ADD COLUMN ls_subscription_id TEXT",
   "ALTER TABLE users ADD COLUMN stripe_customer_id TEXT",

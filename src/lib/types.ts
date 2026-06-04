@@ -8,6 +8,7 @@ export interface User {
   avatar_url: string | null;
   public_key?: string | null;
   nitro_tier?: NitroTier;
+  role?: "member" | "admin";
 }
 
 export interface SessionUser extends User {

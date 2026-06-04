@@ -10,6 +10,7 @@ export interface DbUser {
   avatar_url: string | null;
   public_key: string | null;
   nitro_tier: NitroTier;
+  role: "member" | "admin";
   ls_customer_id: string | null;
   ls_subscription_id: string | null;
 }
@@ -48,6 +49,7 @@ export function rowToSessionUser(row: DbUser, friendCount: number) {
     avatar_url: row.avatar_url,
     public_key: row.public_key,
     nitro_tier: tier,
+    role: row.role,
     friend_count: friendCount,
     friend_limit: getFriendLimit(tier),
     can_create_groups: canCreateGroups(tier),

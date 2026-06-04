@@ -19,6 +19,7 @@ function optStr(row: Row, key: string): string | null {
 export function rowToUser(row: Row): DbUser {
   const avatar = row.avatar_url;
   const tier = str(row, "nitro_tier") || "none";
+  const role = str(row, "role") || "member";
   return {
     id: str(row, "id"),
     username: str(row, "username"),
@@ -26,6 +27,7 @@ export function rowToUser(row: Row): DbUser {
     avatar_url: avatar == null ? null : String(avatar),
     public_key: optStr(row, "public_key"),
     nitro_tier: (tier === "basic" || tier === "plus" ? tier : "none") as NitroTier,
+    role: (role === "admin" ? "admin" : "member"),
     ls_customer_id:
       optStr(row, "ls_customer_id") ?? optStr(row, "stripe_customer_id"),
     ls_subscription_id:
