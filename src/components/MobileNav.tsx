@@ -6,6 +6,7 @@ import { IconChats, IconFriends, IconProfile } from "./icons";
 
 const tabs: { id: MobileTab; label: string; Icon: typeof IconChats }[] = [
   { id: "chats", label: "Chats", Icon: IconChats },
+  { id: "groups", label: "Groups", Icon: IconFriends },
   { id: "friends", label: "Friends", Icon: IconFriends },
   { id: "profile", label: "Profile", Icon: IconProfile },
 ];

@@ -4,10 +4,12 @@ import { getSessionUserId } from "@/lib/auth";
 import { prepareDb } from "@/lib/api-route";
 import {
   buildFriendsPayload,
+  countAcceptedFriends,
   createFriendRequest,
   findFriendship,
 } from "@/lib/db/friends";
 import { findUserById } from "@/lib/db";
+import { getFriendLimit } from "@/lib/nitro";
 
 export const runtime = "nodejs";
 
@@ -42,6 +44,18 @@ export async function POST(request: Request) {
 
   if (!(await findUserById(receiverId))) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const me = await findUserById(userId);
+  const friendCount = await countAcceptedFriends(userId);
+  const limit = getFriendLimit(me?.nitro_tier ?? "none");
+  if (friendCount >= limit) {
+    return NextResponse.json(
+      {
+        error: `Friend limit reached (${limit}). Upgrade Nitro at /nitro for more slots.`,
+      },
+      { status: 403 }
+    );
   }
 
   const existing = await findFriendship(userId, receiverId);

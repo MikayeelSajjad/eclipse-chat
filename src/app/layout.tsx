@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { CryptoProvider } from "@/context/CryptoProvider";
 import { EclipseProvider } from "@/context/EclipseProvider";
 import "./globals.css";
 
@@ -14,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Eclipse — Real-time Chat",
-  description: "Premium dark-mode real-time chatting application",
+  title: "Eclipse — E2E Encrypted Chat",
+  description:
+    "End-to-end encrypted messaging and private groups. Nitro upgrades for more friends.",
   applicationName: "Eclipse",
   appleWebApp: {
     capable: true,
@@ -50,7 +52,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans h-full antialiased`}
       >
-        <EclipseProvider>{children}</EclipseProvider>
+        <CryptoProvider>
+          <EclipseProvider>{children}</EclipseProvider>
+        </CryptoProvider>
       </body>
     </html>
   );

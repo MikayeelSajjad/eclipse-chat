@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { setSessionCookie } from "@/lib/auth";
 import { prepareDb } from "@/lib/api-route";
-import { findUserByUsername, rowToPublicUser } from "@/lib/db";
+import { findUserByUsername } from "@/lib/db";
+import { buildSessionUser } from "@/lib/session-user";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const response = NextResponse.json({ user: rowToPublicUser(user) });
+  const sessionUser = await buildSessionUser(user.id);
+  const response = NextResponse.json({ user: sessionUser });
   setSessionCookie(response, user.id);
   return response;
 }

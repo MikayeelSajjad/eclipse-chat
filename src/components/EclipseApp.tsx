@@ -8,9 +8,11 @@ import { ChatHeader } from "./ChatHeader";
 import { ChatInput } from "./ChatInput";
 import { ConversationList } from "./ConversationList";
 import { FriendsPanel } from "./FriendsPanel";
+import { GroupsPanel } from "./GroupsPanel";
 import { MobileChatOverlay } from "./MobileChatOverlay";
 import { MobileNav } from "./MobileNav";
 import { ProfileCard } from "./ProfileCard";
+import { CryptoUnlockBanner } from "./CryptoUnlockBanner";
 
 export function EclipseApp() {
   const router = useRouter();
@@ -19,13 +21,14 @@ export function EclipseApp() {
     currentUser,
     mobileTab,
     activePeerId,
+    activeGroupId,
     sendMessage,
     pingTyping,
   } = useEclipse();
 
   useEffect(() => {
     if (hydrated && !currentUser) {
-      router.replace("/login");
+      router.replace("/login?next=/chat");
     }
   }, [hydrated, currentUser, router]);
 
@@ -39,6 +42,7 @@ export function EclipseApp() {
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-950">
+      <CryptoUnlockBanner />
       <div className="hidden lg:grid lg:grid-cols-[280px_320px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden">
         <aside className="flex min-h-0 flex-col border-r border-slate-800 bg-slate-950">
           <ProfileCard />
@@ -47,6 +51,7 @@ export function EclipseApp() {
 
         <section className="flex min-h-0 flex-col border-r border-slate-800 bg-slate-950/80">
           <FriendsPanel />
+          <GroupsPanel />
         </section>
 
         <main className="flex min-h-0 flex-col bg-slate-950">
@@ -55,7 +60,7 @@ export function EclipseApp() {
           <ChatInput
             onSend={sendMessage}
             onTyping={() => activePeerId && pingTyping(activePeerId)}
-            disabled={!activePeerId}
+            disabled={!activePeerId && !activeGroupId}
           />
         </main>
       </div>
@@ -76,11 +81,23 @@ export function EclipseApp() {
           </div>
         )}
 
+        {mobileTab === "groups" && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <GroupsPanel />
+          </div>
+        )}
+
         {mobileTab === "profile" && (
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ProfileCard showLogout />
             <div className="px-4 py-6 text-sm text-slate-500">
-              <p>Eclipse — messages and friends are stored in SQLite.</p>
+              <p className="mb-2">
+                Friends: {currentUser.friend_count}/{currentUser.friend_limit}
+              </p>
+              <a href="/nitro" className="text-indigo-400 underline">
+                Nitro plans
+              </a>
+              <p className="mt-4">E2E encrypted · server cannot read messages.</p>
             </div>
           </div>
         )}

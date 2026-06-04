@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prepareDb } from "@/lib/api-route";
-import { findUserById, rowToPublicUser } from "@/lib/db";
+import { buildSessionUser } from "@/lib/session-user";
 
 export const runtime = "nodejs";
 
@@ -14,10 +14,10 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const user = await findUserById(userId);
+  const user = await buildSessionUser(userId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 401 });
   }
 
-  return NextResponse.json({ user: rowToPublicUser(user) });
+  return NextResponse.json({ user });
 }

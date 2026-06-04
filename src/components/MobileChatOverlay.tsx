@@ -8,16 +8,19 @@ import { ChatInput } from "./ChatInput";
 export function MobileChatOverlay() {
   const {
     activePeerId,
+    activeGroupId,
     setActivePeer,
+    setActiveGroup,
     sendMessage,
     setMobileTab,
     pingTyping,
   } = useEclipse();
 
-  if (!activePeerId) return null;
+  if (!activePeerId && !activeGroupId) return null;
 
   const handleBack = () => {
     setActivePeer(null);
+    setActiveGroup(null);
     setMobileTab("chats");
   };
 
@@ -27,7 +30,7 @@ export function MobileChatOverlay() {
       <ChatFeed />
       <ChatInput
         onSend={sendMessage}
-        onTyping={() => pingTyping(activePeerId)}
+        onTyping={() => activePeerId && pingTyping(activePeerId)}
       />
     </div>
   );

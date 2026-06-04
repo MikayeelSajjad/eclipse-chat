@@ -29,11 +29,11 @@ export function FriendsPanel() {
   }, [query, searchUsers]);
 
   const handleAdd = async (user: SearchUser) => {
-    const ok = await sendFriendRequest(user.id);
+    const err = await sendFriendRequest(user.id);
     setFeedback(
-      ok ? `Request sent to @${user.username}` : "Could not send request"
+      err ? err : `Request sent to @${user.username}`
     );
-    if (ok) searchUsers(query);
+    if (!err) searchUsers(query);
     setTimeout(() => setFeedback(""), 3000);
   };
 

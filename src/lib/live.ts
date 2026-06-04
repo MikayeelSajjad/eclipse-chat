@@ -1,11 +1,13 @@
-import type { ConversationSummary, Message, User } from "./types";
+import type { ConversationSummary, GroupSummary, Message, User } from "./types";
 
 export interface LiveSyncPayload {
   serverTime: number;
   conversations: ConversationSummary[];
+  groups: GroupSummary[];
   newMessages: Message[];
   peerTyping: boolean;
   inbox: { message: Message; peer: User }[];
+  groupInbox: { message: Message; groupId: string; groupName: string }[];
 }
 
 export function mergeMessages(prev: Message[], incoming: Message[]): Message[] {

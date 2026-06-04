@@ -1,10 +1,15 @@
 export { getClient } from "./client";
 export { ensureSchema } from "./ensure";
 export type { DbUser, DbMessage, DbFriend } from "./types";
-export { rowToPublicUser } from "./types";
+export { rowToPublicUser, rowToSessionUser } from "./types";
+export type { NitroTier } from "./types";
 export {
   findUserById,
   findUserByUsername,
   createUser,
   searchUsers,
+  updateUserPublicKey,
+  updateUserNitro,
+  getPublicKey,
+  findUserByLsSubscriptionId,
 } from "./users";

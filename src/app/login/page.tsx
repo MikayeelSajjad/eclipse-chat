@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (hydrated && currentUser) {
-      router.replace("/");
+      router.replace("/chat");
     }
   }, [hydrated, currentUser, router]);
 
@@ -39,7 +39,7 @@ export default function LoginPage() {
       setError(err);
       return;
     }
-    router.replace("/");
+    router.replace("/chat");
   };
 
   if (!hydrated) {
@@ -64,7 +64,7 @@ export default function LoginPage() {
             Eclipse
           </h1>
           <p className="text-sm text-slate-500">
-            Sign in with your database account
+            E2E encrypted chat — keys stay on your device
           </p>
         </div>
 

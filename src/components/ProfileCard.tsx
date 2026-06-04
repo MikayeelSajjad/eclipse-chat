@@ -11,6 +11,7 @@ interface ProfileCardProps {
 export function ProfileCard({ showLogout = true }: ProfileCardProps) {
   const { currentUser, logout, notificationsEnabled, enableNotifications } =
     useEclipse();
+  const tier = currentUser?.nitro_tier ?? "none";
   if (!currentUser) return null;
 
   return (
@@ -33,8 +34,18 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
               {currentUser.username}
             </p>
             <p className="text-sm text-cyan-400/80">@{currentUser.username}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              {currentUser.friend_count}/{currentUser.friend_limit} friends ·{" "}
+              {tier === "none" ? "Free" : tier === "basic" ? "Nitro Basic" : "Nitro+"}
+            </p>
           </div>
         </div>
+        <a
+          href="/nitro"
+          className="mt-4 block w-full rounded-xl bg-gradient-to-r from-indigo-600/80 to-cyan-600/60 py-2.5 text-center text-sm font-semibold text-white"
+        >
+          Upgrade Nitro
+        </a>
         {showLogout && !notificationsEnabled && (
           <button
             type="button"

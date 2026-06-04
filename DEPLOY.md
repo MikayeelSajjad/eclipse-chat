@@ -75,8 +75,49 @@ Netlify **cannot** run this app’s API. You must use the **Vercel URL** for the
 
 ---
 
+## Part 4 — Lemon Squeezy (Nitro subscriptions)
+
+1. In [Lemon Squeezy](https://app.lemonsqueezy.com), create your store and two **subscription** products:
+   - **Nitro Basic** — $1.99/month
+   - **Nitro+** — $4.99/month
+2. Copy from **Settings → API** and each product’s variant ID.
+3. In Vercel → **Environment Variables**, add:
+
+   | Name | Value |
+   |------|--------|
+   | `LEMONSQUEEZY_API_KEY` | API key from Lemon Squeezy |
+   | `LEMONSQUEEZY_STORE_ID` | Your store ID |
+   | `LEMONSQUEEZY_VARIANT_BASIC_ID` | Variant ID for Nitro Basic |
+   | `LEMONSQUEEZY_VARIANT_PLUS_ID` | Variant ID for Nitro+ |
+   | `LEMONSQUEEZY_WEBHOOK_SECRET` | Signing secret from your webhook |
+
+4. **Webhook** (required for Nitro to activate after payment):
+   - Store → **Webhooks** → Add endpoint  
+   - URL: `https://YOUR-APP.vercel.app/api/lemonsqueezy/webhook`  
+   - Events: `subscription_created`, `subscription_updated`, `subscription_cancelled`, `subscription_expired`
+5. Redeploy after adding env vars.
+
+Use **Test mode** in Lemon Squeezy to try checkout without real charges.
+
+---
+
+## Routes
+
+| URL | Purpose |
+|-----|---------|
+| `/` | Marketing landing (E2E, groups, Nitro) |
+| `/chat` | Main app |
+| `/login` | Sign in / sign up |
+| `/nitro` | Subscribe to Nitro Basic ($1.99) or Nitro+ ($4.99) |
+
+---
+
 ## What changed in the code
 
 - Database moved from local SQLite file to **Turso** (works on Vercel).
 - API routes run on Vercel as serverless functions.
 - Signup/login write to Turso in the cloud.
+- **E2E encryption** (Web Crypto): DMs and group messages encrypted in the browser; server stores ciphertext only.
+- **Private groups** (Nitro Basic+): create, name, invite friends.
+- **Nitro** friend limits: Free 20 · Basic 40 · Nitro+ 60.
+- **Lemon Squeezy Checkout** for Nitro subscriptions.

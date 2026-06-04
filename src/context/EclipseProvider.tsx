@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { apiFetch } from "@/lib/api";
+import { CRYPTO_LOCKED, useCrypto } from "@/context/CryptoProvider";
 import { mergeMessages, type LiveSyncPayload } from "@/lib/live";
 import {
   ensureNotificationPermission,
@@ -20,6 +21,7 @@ import {
 import type {
   ConversationSummary,
   FriendsPayload,
+  GroupSummary,
   Message,
   MobileTab,
   SearchUser,
@@ -31,23 +33,32 @@ import type {
 const LIVE_INTERVAL_MS = 2000;
 const LIVE_HIDDEN_INTERVAL_MS = 3500;
 
+const CRYPTO_UNLOCK_MSG =
+  "Unlock encryption first — enter your account password in the yellow banner above.";
+
 interface EclipseContextValue {
   hydrated: boolean;
   loading: boolean;
   liveConnected: boolean;
   currentUser: SessionUser | null;
   conversations: ConversationSummary[];
+  groups: GroupSummary[];
   messages: Message[];
   friends: FriendsPayload;
   searchResults: SearchUser[];
   activePeerId: UserId | null;
+  activeGroupId: string | null;
   mobileTab: MobileTab;
   typingPeerId: UserId | null;
   notificationsEnabled: boolean;
+  cryptoReady: boolean;
+  decryptedById: Record<string, string>;
+  unlockEncryption: (password: string) => Promise<string | null>;
   enableNotifications: () => Promise<boolean>;
   isPeerUnread: (peerId: string) => boolean;
   setMobileTab: (tab: MobileTab) => void;
   refreshAll: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   login: (username: string, password: string) => Promise<string | null>;
   signup: (
     username: string,
@@ -56,25 +67,34 @@ interface EclipseContextValue {
   ) => Promise<string | null>;
   logout: () => Promise<void>;
   searchUsers: (query: string) => Promise<void>;
-  sendFriendRequest: (receiverId: UserId) => Promise<boolean>;
+  sendFriendRequest: (receiverId: UserId) => Promise<string | null>;
   acceptFriendRequest: (requestId: string) => Promise<void>;
   declineFriendRequest: (requestId: string) => Promise<void>;
   openConversation: (peerId: UserId) => Promise<void>;
+  openGroup: (groupId: string) => Promise<void>;
   setActivePeer: (peerId: UserId | null) => void;
+  setActiveGroup: (groupId: string | null) => void;
   sendMessage: (text: string) => Promise<void>;
   pingTyping: (peerId: UserId) => void;
   getActiveFriend: () => User | undefined;
+  getActiveGroup: () => GroupSummary | undefined;
+  getDisplayContent: (message: Message) => string;
+  createGroup: (name: string, memberIds: string[]) => Promise<string | null>;
+  inviteToGroup: (groupId: string, userId: string) => Promise<string | null>;
+  startCheckout: (plan: "basic" | "plus") => Promise<string | null>;
 }
 
 const EclipseContext = createContext<EclipseContextValue | null>(null);
 
 export function EclipseProvider({ children }: { children: ReactNode }) {
+  const crypto = useCrypto();
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [friends, setFriends] = useState<FriendsPayload>({
     accepted: [],
@@ -83,12 +103,15 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
   });
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [activePeerId, setActivePeerId] = useState<UserId | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("chats");
   const [typingPeerId, setTypingPeerId] = useState<UserId | null>(null);
   const [lastReadAt, setLastReadAt] = useState<Record<string, number>>({});
+  const [decryptedById, setDecryptedById] = useState<Record<string, string>>({});
 
   const lastSyncRef = useRef(0);
   const activePeerRef = useRef<UserId | null>(null);
+  const activeGroupRef = useRef<string | null>(null);
   const currentUserRef = useRef<SessionUser | null>(null);
   const typingPingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notifiedIdsRef = useRef<Set<string>>(new Set());
@@ -98,11 +121,19 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
   }, [activePeerId]);
 
   useEffect(() => {
+    activeGroupRef.current = activeGroupId;
+  }, [activeGroupId]);
+
+  useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
   const markPeerRead = useCallback((peerId: string) => {
     setLastReadAt((prev) => ({ ...prev, [peerId]: Date.now() }));
+  }, []);
+
+  const markGroupRead = useCallback((groupId: string) => {
+    setLastReadAt((prev) => ({ ...prev, [`g:${groupId}`]: Date.now() }));
   }, []);
 
   const loadConversations = useCallback(async () => {
@@ -112,12 +143,23 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     if (res.ok) setConversations(res.data.conversations);
   }, []);
 
+  const loadGroups = useCallback(async () => {
+    const res = await apiFetch<{ groups: GroupSummary[] }>("/api/groups");
+    if (res.ok) setGroups(res.data.groups);
+  }, []);
+
   const loadFriends = useCallback(async () => {
     const res = await apiFetch<FriendsPayload>("/api/friends");
     if (res.ok) setFriends(res.data);
   }, []);
 
-  const loadMessages = useCallback(async (peerId: string) => {
+  const refreshUser = useCallback(async () => {
+    const res = await apiFetch<{ user: SessionUser }>("/api/auth/me");
+    if (res.ok) setCurrentUser(res.data.user);
+  }, []);
+
+
+  const loadDmMessages = useCallback(async (peerId: string) => {
     const res = await apiFetch<{ messages: Message[] }>(
       `/api/messages?peerId=${encodeURIComponent(peerId)}`
     );
@@ -130,60 +172,122 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const applyLiveSync = useCallback((data: LiveSyncPayload) => {
-    setConversations(data.conversations);
-    setLiveConnected(true);
-    lastSyncRef.current = data.serverTime;
-
-    const peer = activePeerRef.current;
-    const me = currentUserRef.current;
-
-    if (peer && data.newMessages.length > 0) {
-      setMessages((prev) => mergeMessages(prev, data.newMessages));
-      const fromPeer = data.newMessages.filter((m) => m.sender_id === peer);
-      if (fromPeer.length > 0) {
-        playMessageSound();
-        markPeerRead(peer);
+  const loadGroupMessages = useCallback(async (groupId: string) => {
+    await crypto.ensureGroupKey(groupId);
+    const res = await apiFetch<{ messages: Message[] }>(
+      `/api/groups/${encodeURIComponent(groupId)}/messages`
+    );
+    if (res.ok) {
+      setMessages(res.data.messages);
+      if (res.data.messages.length > 0) {
+        const last = res.data.messages[res.data.messages.length - 1];
+        lastSyncRef.current = Math.max(lastSyncRef.current, last.created_at);
       }
     }
+  }, [crypto]);
 
-    setTypingPeerId(data.peerTyping && peer ? peer : null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const m of messages) {
+        const gid = m.group_id ?? activeGroupId;
+        try {
+          next[m.id] = await crypto.decryptMessage(m.content, m.sender_id, gid);
+        } catch {
+          next[m.id] = crypto.previewContent(m.content);
+        }
+      }
+      if (!cancelled) setDecryptedById((prev) => ({ ...prev, ...next }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, activeGroupId, crypto]);
 
-    for (const item of data.inbox) {
-      if (notifiedIdsRef.current.has(item.message.id)) continue;
-      notifiedIdsRef.current.add(item.message.id);
+  const getDisplayContent = useCallback(
+    (message: Message) =>
+      decryptedById[message.id] ?? crypto.previewContent(message.content),
+    [decryptedById, crypto]
+  );
 
-      const isActiveChat =
-        peer === item.peer.id && document.visibilityState === "visible";
+  const applyLiveSync = useCallback(
+    (data: LiveSyncPayload) => {
+      setConversations(data.conversations);
+      setGroups(data.groups);
+      setLiveConnected(true);
+      lastSyncRef.current = data.serverTime;
 
-      if (!isActiveChat) {
-        showMessageNotification(item.message, item.peer);
-        playMessageSound();
+      const peer = activePeerRef.current;
+      const group = activeGroupRef.current;
+      const me = currentUserRef.current;
+
+      if (data.newMessages.length > 0) {
+        if (group) {
+          setMessages((prev) => mergeMessages(prev, data.newMessages));
+          playMessageSound();
+          markGroupRead(group);
+        } else if (peer) {
+          setMessages((prev) => mergeMessages(prev, data.newMessages));
+          const fromPeer = data.newMessages.filter((m) => m.sender_id === peer);
+          if (fromPeer.length > 0) {
+            playMessageSound();
+            markPeerRead(peer);
+          }
+        }
       }
 
-      if (peer === item.peer.id && document.visibilityState === "visible") {
-        setMessages((prev) => mergeMessages(prev, [item.message]));
-        markPeerRead(peer);
-      }
-    }
+      setTypingPeerId(data.peerTyping && peer ? peer : null);
 
-    if (me && data.inbox.length > 0) {
-      const unread = data.inbox.filter((i) => i.peer.id !== peer).length;
-      if (unread > 0 && document.visibilityState !== "visible") {
-        document.title = `(${unread}) Eclipse`;
-      } else if (document.visibilityState === "visible") {
-        document.title = "Eclipse — Real-time Chat";
+      for (const item of data.inbox) {
+        if (notifiedIdsRef.current.has(item.message.id)) continue;
+        notifiedIdsRef.current.add(item.message.id);
+        const isActiveChat =
+          peer === item.peer.id && document.visibilityState === "visible";
+        if (!isActiveChat) {
+          showMessageNotification(item.message, item.peer);
+          playMessageSound();
+        }
+        if (peer === item.peer.id && document.visibilityState === "visible") {
+          setMessages((prev) => mergeMessages(prev, [item.message]));
+          markPeerRead(peer);
+        }
       }
-    }
-  }, [markPeerRead]);
+
+      for (const item of data.groupInbox) {
+        if (notifiedIdsRef.current.has(item.message.id)) continue;
+        notifiedIdsRef.current.add(item.message.id);
+        const isActive =
+          group === item.groupId && document.visibilityState === "visible";
+        if (!isActive) playMessageSound();
+        if (isActive) {
+          setMessages((prev) => mergeMessages(prev, [item.message]));
+          markGroupRead(item.groupId);
+        }
+      }
+
+      if (me && (data.inbox.length > 0 || data.groupInbox.length > 0)) {
+        const unread =
+          data.inbox.filter((i) => i.peer.id !== peer).length +
+          data.groupInbox.filter((i) => i.groupId !== group).length;
+        if (unread > 0 && document.visibilityState !== "visible") {
+          document.title = `(${unread}) Eclipse`;
+        } else if (document.visibilityState === "visible") {
+          document.title = "Eclipse — E2E Chat";
+        }
+      }
+    },
+    [markPeerRead, markGroupRead]
+  );
 
   const runLiveSync = useCallback(async () => {
     if (!currentUserRef.current) return;
     const peer = activePeerRef.current;
+    const group = activeGroupRef.current;
     const since = lastSyncRef.current;
-    const url = peer
-      ? `/api/live?since=${since}&peerId=${encodeURIComponent(peer)}`
-      : `/api/live?since=${since}`;
+    let url = `/api/live?since=${since}`;
+    if (group) url += `&groupId=${encodeURIComponent(group)}`;
+    else if (peer) url += `&peerId=${encodeURIComponent(peer)}`;
 
     const res = await apiFetch<LiveSyncPayload>(url);
     if (res.ok) applyLiveSync(res.data);
@@ -194,67 +298,100 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       setLiveConnected(false);
       return;
     }
-
     void runLiveSync();
-
-    const tick = () => {
-      void runLiveSync();
-    };
-
+    const tick = () => void runLiveSync();
     const interval =
       typeof document !== "undefined" &&
       document.visibilityState === "hidden"
         ? LIVE_HIDDEN_INTERVAL_MS
         : LIVE_INTERVAL_MS;
-
     const id = window.setInterval(tick, interval);
-
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        document.title = "Eclipse — Real-time Chat";
+        document.title = "Eclipse — E2E Chat";
         void runLiveSync();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
-
     return () => {
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [currentUser, activePeerId, runLiveSync]);
+  }, [currentUser, activePeerId, activeGroupId, runLiveSync]);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadConversations(), loadFriends()]);
-    if (activePeerId) await loadMessages(activePeerId);
+    await Promise.all([loadConversations(), loadFriends(), loadGroups()]);
+    if (activePeerId) await loadDmMessages(activePeerId);
+    if (activeGroupId) await loadGroupMessages(activeGroupId);
     await runLiveSync();
     setLoading(false);
-  }, [activePeerId, loadConversations, loadFriends, loadMessages, runLiveSync]);
+  }, [
+    activePeerId,
+    activeGroupId,
+    loadConversations,
+    loadFriends,
+    loadGroups,
+    loadDmMessages,
+    loadGroupMessages,
+    runLiveSync,
+  ]);
 
   useEffect(() => {
     (async () => {
       const res = await apiFetch<{ user: SessionUser }>("/api/auth/me");
       if (res.ok) {
         setCurrentUser(res.data.user);
-        await Promise.all([loadConversations(), loadFriends()]);
+        await Promise.all([loadConversations(), loadFriends(), loadGroups()]);
         const granted = await ensureNotificationPermission();
         setNotificationsEnabled(granted);
       }
       setHydrated(true);
     })();
-  }, [loadConversations, loadFriends]);
+  }, [loadConversations, loadFriends, loadGroups]);
 
   useEffect(() => {
-    if (!activePeerId || !currentUser) return;
-    loadMessages(activePeerId);
-    markPeerRead(activePeerId);
-  }, [activePeerId, currentUser, loadMessages, markPeerRead]);
+    if (!currentUser) return;
+    if (activePeerId) {
+      loadDmMessages(activePeerId);
+      markPeerRead(activePeerId);
+    }
+  }, [activePeerId, currentUser, loadDmMessages, markPeerRead]);
+
+  useEffect(() => {
+    if (!currentUser || !activeGroupId) return;
+    loadGroupMessages(activeGroupId);
+    markGroupRead(activeGroupId);
+  }, [activeGroupId, currentUser, loadGroupMessages, markGroupRead]);
 
   const enableNotifications = useCallback(async () => {
     const granted = await ensureNotificationPermission();
     setNotificationsEnabled(granted);
     return granted;
   }, []);
+
+  const unlockEncryption = useCallback(
+    async (password: string): Promise<string | null> => {
+      if (!currentUser) return "Not signed in";
+      return crypto.unlockIdentity(currentUser.id, password);
+    },
+    [currentUser, crypto]
+  );
+
+  const afterAuth = useCallback(
+    async (user: SessionUser, password: string) => {
+      const cryptoErr = await crypto.unlockIdentity(user.id, password);
+      if (cryptoErr) return cryptoErr;
+      setCurrentUser(user);
+      lastSyncRef.current = Date.now();
+      notifiedIdsRef.current.clear();
+      await Promise.all([loadConversations(), loadFriends(), loadGroups()]);
+      const granted = await ensureNotificationPermission();
+      setNotificationsEnabled(granted);
+      return null;
+    },
+    [crypto, loadConversations, loadFriends, loadGroups]
+  );
 
   const login = useCallback(
     async (username: string, password: string): Promise<string | null> => {
@@ -263,15 +400,9 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, password }),
       });
       if (!res.ok) return res.error;
-      setCurrentUser(res.data.user);
-      lastSyncRef.current = Date.now();
-      notifiedIdsRef.current.clear();
-      await Promise.all([loadConversations(), loadFriends()]);
-      const granted = await ensureNotificationPermission();
-      setNotificationsEnabled(granted);
-      return null;
+      return afterAuth(res.data.user, password);
     },
-    [loadConversations, loadFriends]
+    [afterAuth]
   );
 
   const signup = useCallback(
@@ -289,31 +420,30 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
         }),
       });
       if (!res.ok) return res.error;
-      setCurrentUser(res.data.user);
-      lastSyncRef.current = Date.now();
-      notifiedIdsRef.current.clear();
-      await Promise.all([loadConversations(), loadFriends()]);
-      const granted = await ensureNotificationPermission();
-      setNotificationsEnabled(granted);
-      return null;
+      return afterAuth(res.data.user, password);
     },
-    [loadConversations, loadFriends]
+    [afterAuth]
   );
 
   const logout = useCallback(async () => {
+    const uid = currentUser?.id;
     await apiFetch("/api/auth/logout", { method: "POST" });
+    if (uid) crypto.clearIdentity(uid);
     setCurrentUser(null);
     setConversations([]);
+    setGroups([]);
     setMessages([]);
     setFriends({ accepted: [], incoming: [], outgoing: [] });
     setActivePeerId(null);
+    setActiveGroupId(null);
     setSearchResults([]);
     setMobileTab("chats");
     setTypingPeerId(null);
     setLiveConnected(false);
+    setDecryptedById({});
     lastSyncRef.current = 0;
     notifiedIdsRef.current.clear();
-  }, []);
+  }, [currentUser, crypto]);
 
   const searchUsers = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -327,16 +457,16 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendFriendRequest = useCallback(
-    async (receiverId: UserId): Promise<boolean> => {
+    async (receiverId: UserId): Promise<string | null> => {
       const res = await apiFetch<{ id: string }>("/api/friends", {
         method: "POST",
         body: JSON.stringify({ receiver_id: receiverId }),
       });
-      if (!res.ok) return false;
-      await loadFriends();
-      return true;
+      if (!res.ok) return res.error;
+      await Promise.all([loadFriends(), refreshUser()]);
+      return null;
     },
-    [loadFriends]
+    [loadFriends, refreshUser]
   );
 
   const acceptFriendRequest = useCallback(
@@ -345,10 +475,10 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
         method: "PATCH",
         body: JSON.stringify({ action: "accept" }),
       });
-      await Promise.all([loadFriends(), loadConversations()]);
+      await Promise.all([loadFriends(), loadConversations(), refreshUser()]);
       await runLiveSync();
     },
-    [loadFriends, loadConversations, runLiveSync]
+    [loadFriends, loadConversations, refreshUser, runLiveSync]
   );
 
   const declineFriendRequest = useCallback(
@@ -361,43 +491,81 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
 
   const openConversation = useCallback(
     async (peerId: UserId) => {
+      setActiveGroupId(null);
       setActivePeerId(peerId);
       markPeerRead(peerId);
-      await loadMessages(peerId);
+      await loadDmMessages(peerId);
     },
-    [loadMessages, markPeerRead]
+    [loadDmMessages, markPeerRead]
   );
 
-  const setActivePeer = useCallback((peerId: UserId | null) => {
-    setActivePeerId(peerId);
-    if (!peerId) setMessages([]);
-    else markPeerRead(peerId);
-  }, [markPeerRead]);
+  const openGroup = useCallback(
+    async (groupId: string) => {
+      setActivePeerId(null);
+      setActiveGroupId(groupId);
+      markGroupRead(groupId);
+      await loadGroupMessages(groupId);
+    },
+    [loadGroupMessages, markGroupRead]
+  );
+
+  const setActivePeer = useCallback(
+    (peerId: UserId | null) => {
+      setActiveGroupId(null);
+      setActivePeerId(peerId);
+      if (!peerId) setMessages([]);
+      else markPeerRead(peerId);
+    },
+    [markPeerRead]
+  );
+
+  const setActiveGroup = useCallback(
+    (groupId: string | null) => {
+      setActivePeerId(null);
+      setActiveGroupId(groupId);
+      if (!groupId) setMessages([]);
+      else markGroupRead(groupId);
+    },
+    [markGroupRead]
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || !currentUser || !activePeerId) return;
+      if (!trimmed || !currentUser) return;
+      if (!crypto.cryptoReady) return;
 
-      const res = await apiFetch<{ message: Message }>("/api/messages", {
-        method: "POST",
-        body: JSON.stringify({
-          receiver_id: activePeerId,
-          content: trimmed,
-        }),
-      });
+      try {
+      if (activeGroupId) {
+        const content = await crypto.encryptGroup(trimmed, activeGroupId);
+        const res = await apiFetch<{ message: Message }>(
+          `/api/groups/${encodeURIComponent(activeGroupId)}/messages`,
+          { method: "POST", body: JSON.stringify({ content }) }
+        );
+        if (!res.ok) return;
+        setMessages((prev) => mergeMessages(prev, [res.data.message]));
+      } else if (activePeerId) {
+        const content = await crypto.encryptDm(trimmed, activePeerId);
+        const res = await apiFetch<{ message: Message }>("/api/messages", {
+          method: "POST",
+          body: JSON.stringify({
+            receiver_id: activePeerId,
+            content,
+          }),
+        });
+        if (!res.ok) return;
+        setMessages((prev) => mergeMessages(prev, [res.data.message]));
+      } else return;
 
-      if (!res.ok) return;
-
-      setMessages((prev) => mergeMessages(prev, [res.data.message]));
-      lastSyncRef.current = Math.max(
-        lastSyncRef.current,
-        res.data.message.created_at
-      );
+      lastSyncRef.current = Date.now();
       await runLiveSync();
       setTypingPeerId(null);
+      } catch (e) {
+        if (e instanceof Error && e.message === CRYPTO_LOCKED) return;
+        throw e;
+      }
     },
-    [activePeerId, currentUser, runLiveSync]
+    [activePeerId, activeGroupId, currentUser, crypto, runLiveSync]
   );
 
   const pingTyping = useCallback((peerId: UserId) => {
@@ -409,6 +577,77 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     typingPingRef.current = setTimeout(() => {
       typingPingRef.current = null;
     }, 1500);
+  }, []);
+
+  const createGroup = useCallback(
+    async (name: string, memberIds: string[]): Promise<string | null> => {
+      if (!currentUser) return "Not signed in";
+      if (!crypto.cryptoReady) return CRYPTO_UNLOCK_MSG;
+      try {
+      const allMembers = Array.from(new Set([currentUser.id, ...memberIds]));
+      const { groupKeyRaw, wrapped } =
+        await crypto.prepareGroupKeysForMembers(allMembers);
+      const res = await apiFetch<{ group: GroupSummary }>("/api/groups", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          member_ids: memberIds,
+          wrapped_keys: wrapped,
+        }),
+      });
+      if (!res.ok) return res.error;
+      if (res.data.group) {
+        await crypto.storeGroupKeyRaw(res.data.group.id, groupKeyRaw);
+      }
+      await loadGroups();
+      return null;
+      } catch (e) {
+        if (e instanceof Error && e.message === CRYPTO_LOCKED) {
+          return CRYPTO_UNLOCK_MSG;
+        }
+        return e instanceof Error ? e.message : "Could not create group";
+      }
+    },
+    [currentUser, crypto, loadGroups]
+  );
+
+  const inviteToGroup = useCallback(
+    async (groupId: string, userId: string): Promise<string | null> => {
+      if (!currentUser) return "Not signed in";
+      if (!crypto.cryptoReady) return CRYPTO_UNLOCK_MSG;
+      const ok = await crypto.ensureGroupKey(groupId);
+      if (!ok) return "Could not unlock group encryption";
+      let wrappedKey: string;
+      try {
+        wrappedKey = await crypto.wrapGroupKeyForMember(groupId, userId);
+      } catch (e) {
+        if (e instanceof Error && e.message === CRYPTO_LOCKED) {
+          return CRYPTO_UNLOCK_MSG;
+        }
+        return "User has no encryption key";
+      }
+      const res = await apiFetch(
+        `/api/groups/${encodeURIComponent(groupId)}/members`,
+        {
+          method: "POST",
+          body: JSON.stringify({ user_id: userId, wrapped_key: wrappedKey }),
+        }
+      );
+      if (!res.ok) return res.error;
+      await loadGroups();
+      return null;
+    },
+    [currentUser, crypto, loadGroups]
+  );
+
+  const startCheckout = useCallback(async (plan: "basic" | "plus") => {
+    const res = await apiFetch<{ url: string }>("/api/lemonsqueezy/checkout", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    });
+    if (!res.ok) return res.error;
+    if (res.data.url) window.location.href = res.data.url;
+    return null;
   }, []);
 
   const isPeerUnread = useCallback(
@@ -429,6 +668,11 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     return friends.accepted.find((f) => f.id === activePeerId);
   }, [activePeerId, conversations, friends.accepted]);
 
+  const getActiveGroup = useCallback((): GroupSummary | undefined => {
+    if (!activeGroupId) return undefined;
+    return groups.find((g) => g.id === activeGroupId);
+  }, [activeGroupId, groups]);
+
   const value = useMemo<EclipseContextValue>(
     () => ({
       hydrated,
@@ -436,17 +680,23 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       liveConnected,
       currentUser,
       conversations,
+      groups,
       messages,
       friends,
       searchResults,
       activePeerId,
+      activeGroupId,
       mobileTab,
       typingPeerId,
       notificationsEnabled,
+      cryptoReady: crypto.cryptoReady,
+      decryptedById,
+      unlockEncryption,
       enableNotifications,
       isPeerUnread,
       setMobileTab,
       refreshAll,
+      refreshUser,
       login,
       signup,
       logout,
@@ -455,10 +705,17 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       acceptFriendRequest,
       declineFriendRequest,
       openConversation,
+      openGroup,
       setActivePeer,
+      setActiveGroup,
       sendMessage,
       pingTyping,
       getActiveFriend,
+      getActiveGroup,
+      getDisplayContent,
+      createGroup,
+      inviteToGroup,
+      startCheckout,
     }),
     [
       hydrated,
@@ -466,16 +723,22 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       liveConnected,
       currentUser,
       conversations,
+      groups,
       messages,
       friends,
       searchResults,
       activePeerId,
+      activeGroupId,
       mobileTab,
       typingPeerId,
       notificationsEnabled,
+      crypto.cryptoReady,
+      decryptedById,
+      unlockEncryption,
       enableNotifications,
       isPeerUnread,
       refreshAll,
+      refreshUser,
       login,
       signup,
       logout,
@@ -484,10 +747,17 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       acceptFriendRequest,
       declineFriendRequest,
       openConversation,
+      openGroup,
       setActivePeer,
+      setActiveGroup,
       sendMessage,
       pingTyping,
       getActiveFriend,
+      getActiveGroup,
+      getDisplayContent,
+      createGroup,
+      inviteToGroup,
+      startCheckout,
     ]
   );
 

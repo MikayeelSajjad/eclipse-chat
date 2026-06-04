@@ -1,6 +1,6 @@
 import { getClient } from "./client";
 
-const SCHEMA_STATEMENTS = [
+const BASE_TABLES = [
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY NOT NULL,
     username TEXT NOT NULL UNIQUE,
@@ -35,18 +35,104 @@ const SCHEMA_STATEMENTS = [
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (user_id, peer_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS groups (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    creator_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (creator_id) REFERENCES users(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS group_members (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    joined_at INTEGER NOT NULL,
+    PRIMARY KEY (group_id, user_id),
+    FOREIGN KEY (group_id) REFERENCES groups(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS group_keys (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    wrapped_key TEXT NOT NULL,
+    wrapped_by TEXT,
+    PRIMARY KEY (group_id, user_id),
+    FOREIGN KEY (group_id) REFERENCES groups(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`,
+];
+
+const MIGRATION_STATEMENTS = [
+  "ALTER TABLE users ADD COLUMN public_key TEXT",
+  "ALTER TABLE users ADD COLUMN nitro_tier TEXT DEFAULT 'none'",
+  "ALTER TABLE users ADD COLUMN ls_customer_id TEXT",
+  "ALTER TABLE users ADD COLUMN ls_subscription_id TEXT",
+  "ALTER TABLE users ADD COLUMN stripe_customer_id TEXT",
+  "ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT",
+  "ALTER TABLE messages ADD COLUMN group_id TEXT",
+  "ALTER TABLE group_keys ADD COLUMN wrapped_by TEXT",
+];
+
+const POST_MIGRATION_INDEXES = [
+  `CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id, created_at)`,
 ];
 
 let schemaReady: Promise<void> | null = null;
+
+async function columnExists(
+  table: string,
+  column: string
+): Promise<boolean> {
+  const result = await getClient().execute({
+    sql: `PRAGMA table_info(${table})`,
+    args: [],
+  });
+  return result.rows.some((row) => String(row.name) === column);
+}
+
+async function runMigrations(): Promise<void> {
+  const client = getClient();
+  for (const sql of MIGRATION_STATEMENTS) {
+    try {
+      await client.execute(sql);
+    } catch {
+      /* column may already exist */
+    }
+  }
+
+  if (!(await columnExists("users", "nitro_tier"))) {
+    try {
+      await client.execute(
+        "ALTER TABLE users ADD COLUMN nitro_tier TEXT DEFAULT 'none'"
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  for (const sql of POST_MIGRATION_INDEXES) {
+    try {
+      await client.execute(sql);
+    } catch {
+      /* index may already exist or column still missing */
+    }
+  }
+}
 
 export function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
       const client = getClient();
-      for (const sql of SCHEMA_STATEMENTS) {
+      for (const sql of BASE_TABLES) {
         await client.execute(sql);
       }
+      await runMigrations();
     })();
   }
   return schemaReady;
+}
+
+/** Reset cached schema promise (tests only). */
+export function resetSchemaCache(): void {
+  schemaReady = null;
 }

@@ -55,6 +55,11 @@ export async function deleteFriendRow(id: string) {
   });
 }
 
+export async function countAcceptedFriends(userId: string): Promise<number> {
+  const ids = await getAcceptedFriendIds(userId);
+  return ids.length;
+}
+
 export async function getAcceptedFriendIds(userId: string): Promise<string[]> {
   const rows = (await getFriendRowsForUser(userId)).filter(
     (r) => r.status === "accepted"

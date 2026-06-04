@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { setSessionCookie } from "@/lib/auth";
 import { prepareDb } from "@/lib/api-route";
 import { createUser, findUserByUsername } from "@/lib/db";
+import { buildSessionUser } from "@/lib/session-user";
 
 export const runtime = "nodejs";
 
@@ -40,8 +41,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Username already taken" }, { status: 409 });
   }
 
+  const public_key =
+    typeof body.public_key === "string" ? body.public_key.trim() : null;
+
   const id = randomUUID();
-  const user = await createUser(id, username, password, avatar_url);
+  await createUser(id, username, password, avatar_url, public_key);
+  const user = await buildSessionUser(id);
   const response = NextResponse.json({ user });
   setSessionCookie(response, id);
   return response;

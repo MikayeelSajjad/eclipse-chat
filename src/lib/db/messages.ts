@@ -3,18 +3,23 @@ import { getClient } from "./client";
 import { rowToMessage } from "./rows";
 import { rowToPublicUser, type DbMessage } from "./types";
 import { getAcceptedFriendIds } from "./friends";
+import { isGroupMember } from "./groups";
+
+const MSG_SELECT =
+  "SELECT id, sender_id, receiver_id, content, created_at, group_id FROM messages";
 
 export async function insertMessage(
   id: string,
   senderId: string,
   receiverId: string,
-  content: string
+  content: string,
+  groupId: string | null = null
 ): Promise<DbMessage> {
   const created_at = Date.now();
   await getClient().execute({
-    sql: `INSERT INTO messages (id, sender_id, receiver_id, content, created_at)
-          VALUES (?, ?, ?, ?, ?)`,
-    args: [id, senderId, receiverId, content, created_at],
+    sql: `INSERT INTO messages (id, sender_id, receiver_id, content, created_at, group_id)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [id, senderId, receiverId, content, created_at, groupId],
   });
   return {
     id,
@@ -22,6 +27,7 @@ export async function insertMessage(
     receiver_id: receiverId,
     content,
     created_at,
+    group_id: groupId,
   };
 }
 
@@ -31,12 +37,24 @@ export async function getMessagesSince(
   since: number
 ): Promise<DbMessage[]> {
   const result = await getClient().execute({
-    sql: `SELECT id, sender_id, receiver_id, content, created_at FROM messages
-          WHERE ((sender_id = ? AND receiver_id = ?)
+    sql: `${MSG_SELECT}
+          WHERE group_id IS NULL
+            AND ((sender_id = ? AND receiver_id = ?)
              OR (sender_id = ? AND receiver_id = ?))
             AND created_at > ?
           ORDER BY created_at ASC`,
     args: [userId, peerId, peerId, userId, since],
+  });
+  return result.rows.map(rowToMessage);
+}
+
+export async function getGroupMessagesSince(
+  groupId: string,
+  since: number
+): Promise<DbMessage[]> {
+  const result = await getClient().execute({
+    sql: `${MSG_SELECT} WHERE group_id = ? AND created_at > ? ORDER BY created_at ASC`,
+    args: [groupId, since],
   });
   return result.rows.map(rowToMessage);
 }
@@ -46,10 +64,27 @@ export async function getIncomingMessagesSince(
   since: number
 ): Promise<DbMessage[]> {
   const result = await getClient().execute({
-    sql: `SELECT id, sender_id, receiver_id, content, created_at FROM messages
-          WHERE receiver_id = ? AND created_at > ?
+    sql: `${MSG_SELECT}
+          WHERE receiver_id = ? AND group_id IS NULL AND created_at > ?
           ORDER BY created_at ASC`,
     args: [userId, since],
+  });
+  return result.rows.map(rowToMessage);
+}
+
+export async function getIncomingGroupMessagesSince(
+  userId: string,
+  since: number
+): Promise<DbMessage[]> {
+  const result = await getClient().execute({
+    sql: `${MSG_SELECT}
+          WHERE group_id IS NOT NULL AND created_at > ?
+            AND group_id IN (
+              SELECT group_id FROM group_members WHERE user_id = ?
+            )
+            AND sender_id != ?
+          ORDER BY created_at ASC`,
+    args: [since, userId, userId],
   });
   return result.rows.map(rowToMessage);
 }
@@ -59,11 +94,24 @@ export async function getMessagesBetween(
   peerId: string
 ): Promise<DbMessage[]> {
   const result = await getClient().execute({
-    sql: `SELECT id, sender_id, receiver_id, content, created_at FROM messages
-          WHERE (sender_id = ? AND receiver_id = ?)
-             OR (sender_id = ? AND receiver_id = ?)
+    sql: `${MSG_SELECT}
+          WHERE group_id IS NULL
+            AND ((sender_id = ? AND receiver_id = ?)
+             OR (sender_id = ? AND receiver_id = ?))
           ORDER BY created_at ASC`,
     args: [userId, peerId, peerId, userId],
+  });
+  return result.rows.map(rowToMessage);
+}
+
+export async function getGroupMessages(
+  groupId: string,
+  userId: string
+): Promise<DbMessage[]> {
+  if (!(await isGroupMember(groupId, userId))) return [];
+  const result = await getClient().execute({
+    sql: `${MSG_SELECT} WHERE group_id = ? ORDER BY created_at ASC`,
+    args: [groupId],
   });
   return result.rows.map(rowToMessage);
 }
@@ -74,7 +122,7 @@ export async function getConversationSummaries(userId: string) {
             CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS peer_id,
             MAX(created_at) AS last_at
           FROM messages
-          WHERE sender_id = ? OR receiver_id = ?
+          WHERE group_id IS NULL AND (sender_id = ? OR receiver_id = ?)
           GROUP BY peer_id
           ORDER BY last_at DESC`,
     args: [userId, userId, userId],
