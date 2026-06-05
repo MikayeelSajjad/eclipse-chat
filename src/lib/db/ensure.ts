@@ -67,6 +67,7 @@ const MIGRATION_STATEMENTS = [
   "ALTER TABLE users ADD COLUMN public_key TEXT",
   "ALTER TABLE users ADD COLUMN nitro_tier TEXT DEFAULT 'none'",
   "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'",
+  "ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE users ADD COLUMN ls_customer_id TEXT",
   "ALTER TABLE users ADD COLUMN ls_subscription_id TEXT",
   "ALTER TABLE users ADD COLUMN stripe_customer_id TEXT",
