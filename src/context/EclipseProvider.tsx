@@ -287,8 +287,18 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
         const isActiveChat =
           peer === item.peer.id && document.visibilityState === "visible";
         if (!isActiveChat) {
-          showMessageNotification(item.message, item.peer);
-          playMessageSound();
+          void (async () => {
+            const decryptedContent = await crypto.decryptMessage(
+              item.message.content,
+              item.message.sender_id,
+              item.message.group_id ?? undefined
+            );
+            showMessageNotification(
+              { ...item.message, content: decryptedContent },
+              item.peer
+            );
+            playMessageSound();
+          })();
         }
         if (peer === item.peer.id && document.visibilityState === "visible") {
           setMessages((prev) => mergeMessages(prev, [item.message]));
