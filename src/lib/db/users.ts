@@ -88,6 +88,18 @@ export async function updateUserBanned(
   userId: string,
   banned: boolean
 ): Promise<void> {
+  // Prevent banning admin users at the DB helper level as an extra safeguard.
+  const check = await getClient().execute({
+    sql: "SELECT role FROM users WHERE id = ?",
+    args: [userId],
+  });
+  if (check.rows.length > 0) {
+    const row = check.rows[0];
+    const role = row["role"] == null ? "" : String(row["role"]);
+    if (role === "admin" && banned) {
+      throw new Error("Cannot ban an admin user");
+    }
+  }
   await getClient().execute({
     sql: "UPDATE users SET banned = ? WHERE id = ?",
     args: [banned ? 1 : 0, userId],

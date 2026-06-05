@@ -32,7 +32,12 @@ export async function POST(request: Request) {
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const ban = action === "ban";
-  await updateUserBanned(targetUser.id, ban);
+  try {
+    await updateUserBanned(targetUser.id, ban);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update ban status";
+    return NextResponse.json({ error: message }, { status: 403 });
+  }
 
   return NextResponse.json({ success: true, username: targetUser.username, banned: ban });
 }
