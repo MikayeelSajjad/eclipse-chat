@@ -396,9 +396,15 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!currentUser || !activeGroupId) return;
-    loadGroupMessages(activeGroupId);
-    markGroupRead(activeGroupId);
-  }, [activeGroupId, currentUser, loadGroupMessages, markGroupRead]);
+
+    const activateGroup = async () => {
+      await crypto.ensureGroupKey(activeGroupId);
+      await loadGroupMessages(activeGroupId);
+      markGroupRead(activeGroupId);
+    };
+
+    void activateGroup();
+  }, [activeGroupId, currentUser, loadGroupMessages, markGroupRead, crypto]);
 
   const enableNotifications = useCallback(async () => {
     const granted = await ensureNotificationPermission();
