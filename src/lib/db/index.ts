@@ -10,6 +10,7 @@ export {
   searchUsers,
   updateUserPublicKey,
   updateUserNitro,
+  updateUserPassword,
   updateUserRole,
   updateUserBanned,
   getPublicKey,
