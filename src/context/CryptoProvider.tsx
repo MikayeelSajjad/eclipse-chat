@@ -47,6 +47,7 @@ interface CryptoContextValue {
     senderId: string,
     groupId?: string | null
   ) => Promise<string>;
+  decryptOwnDm: (content: string, peerId: string) => Promise<string>;
   previewContent: (content: string) => string;
   prepareGroupKeysForMembers: (
     memberIds: string[]
@@ -195,6 +196,7 @@ export function CryptoProvider({ children }: { children: ReactNode }) {
           const gk = await getGroupKey(groupId);
           return await decryptWithGroupKey(content, gk);
         }
+
         const senderKey = await fetchPublicKey(senderId);
         return await decryptFromSender(
           content,
@@ -206,6 +208,25 @@ export function CryptoProvider({ children }: { children: ReactNode }) {
       }
     },
     [fetchPublicKey, getGroupKey]
+  );
+
+  const decryptOwnDm = useCallback(
+    async (content: string, peerId: string): Promise<string> => {
+      if (!isEncryptedPayload(content)) return content;
+      if (!privateKeyRef.current) return encryptedPreview();
+
+      try {
+        const receiverKey = await fetchPublicKey(peerId);
+        return await decryptFromSender(
+          content,
+          receiverKey,
+          privateKeyRef.current
+        );
+      } catch {
+        return encryptedPreview();
+      }
+    },
+    [fetchPublicKey]
   );
 
   const previewContent = useCallback((content: string) => {
@@ -308,6 +329,7 @@ export function CryptoProvider({ children }: { children: ReactNode }) {
     encryptDm,
     encryptGroup,
     decryptMessage,
+    decryptOwnDm,
     previewContent,
     prepareGroupKeysForMembers,
     storeGroupKeyRaw,

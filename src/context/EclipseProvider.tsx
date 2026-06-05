@@ -231,7 +231,11 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       for (const m of messages) {
         const gid = m.group_id ?? activeGroupId;
         try {
-          next[m.id] = await crypto.decryptMessage(m.content, m.sender_id, gid);
+          if (currentUser && m.sender_id === currentUser.id && !m.group_id && activePeerId) {
+            next[m.id] = await crypto.decryptOwnDm(m.content, activePeerId);
+          } else {
+            next[m.id] = await crypto.decryptMessage(m.content, m.sender_id, gid);
+          }
         } catch {
           next[m.id] = crypto.previewContent(m.content);
         }
@@ -241,7 +245,7 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [messages, activeGroupId, crypto]);
+  }, [messages, activeGroupId, activePeerId, crypto, currentUser]);
 
   const getDisplayContent = useCallback(
     (message: Message) =>
