@@ -84,6 +84,16 @@ export async function updateUserRole(
   });
 }
 
+export async function updateUserPassword(
+  userId: string,
+  password: string
+): Promise<void> {
+  await getClient().execute({
+    sql: "UPDATE users SET password = ? WHERE id = ?",
+    args: [password, userId],
+  });
+}
+
 export async function updateUserBanned(
   userId: string,
   banned: boolean

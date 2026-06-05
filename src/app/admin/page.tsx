@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [selectedUsername, setSelectedUsername] = useState<string>("");
   const [tier, setTier] = useState<NitroTier>("basic");
   const [status, setStatus] = useState<string>("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isAdmin = currentUser?.role === "admin";
@@ -108,6 +109,37 @@ export default function AdminPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    setStatus("");
+    if (!selectedUser) {
+      setStatus("Please select a user to reset.");
+      return;
+    }
+    if (!password.trim()) {
+      setStatus("Please enter a new password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: selectedUser.username, password: password.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setStatus(payload.error || "Failed to reset password.");
+      } else {
+        setStatus(`Password for ${payload.username} was updated.`);
+        setPassword("");
+      }
+    } catch (error) {
+      setStatus("Server error while resetting password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!hydrated) {
     return <div className="p-8 text-slate-300">Loading admin panel…</div>;
   }
@@ -125,7 +157,7 @@ export default function AdminPage() {
       <div className="rounded-3xl border border-slate-800/90 bg-slate-950/80 p-8 shadow-xl shadow-slate-950/20">
         <h1 className="text-3xl font-semibold text-white">Admin Panel</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Manage user Nitro tiers, bans, and moderation tools.
+          Manage user Nitro tiers, password resets, bans, and moderation tools.
         </p>
 
         <form onSubmit={handleGrant} className="mt-8 space-y-6">
@@ -229,23 +261,48 @@ export default function AdminPage() {
           </button>
 
           {selectedUser && (
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => handleBanToggle(true)}
-                disabled={loading || selectedUser.role === "admin"}
-                className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60"
-              >
-                Ban User
-              </button>
-              <button
-                type="button"
-                onClick={() => handleBanToggle(false)}
-                disabled={loading}
-                className="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
-              >
-                Unban User
-              </button>
+            <div className="mt-3 space-y-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                <label className="block text-sm font-medium text-slate-200">
+                  Set new password
+                </label>
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type="password"
+                  placeholder="New password"
+                  className="mt-3 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-500"
+                />
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={loading || !password.trim()}
+                  className="mt-3 w-full rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Reset Password
+                </button>
+                <p className="mt-3 text-xs text-slate-500">
+                  Note: resetting a password changes login credentials only. If a user has local encryption keys stored in their browser, they may need to reinitialize their crypto identity if the old password is no longer available.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleBanToggle(true)}
+                  disabled={loading || selectedUser.role === "admin"}
+                  className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60"
+                >
+                  Ban User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBanToggle(false)}
+                  disabled={loading}
+                  className="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                >
+                  Unban User
+                </button>
+              </div>
             </div>
           )}
 
