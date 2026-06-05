@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useCrypto } from "@/context/CryptoProvider";
 import { useEclipse } from "@/context/EclipseProvider";
-import { apiFetch } from "@/lib/api";
+import Link from "next/link";
 import { Avatar } from "./Avatar";
 import { IconEclipse } from "./icons";
 
@@ -110,39 +108,14 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
               Change password
             </h2>
             <p className="mt-2 text-xs text-slate-500">
-              Use your current password to set a new login password.
+              Manage your password on a separate secure page.
             </p>
-            <div className="mt-4 space-y-3">
-              <label className="block text-sm font-medium text-slate-200">
-                Current password
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-500"
-              />
-              <label className="block text-sm font-medium text-slate-200">
-                New password
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-500"
-              />
-              <button
-                type="button"
-                onClick={handlePasswordReset}
-                disabled={loading}
-                className="w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Updating…" : "Reset password"}
-              </button>
-              {status && (
-                <p className="text-sm text-slate-200">{status}</p>
-              )}
-            </div>
+            <Link
+              href="/password-reset"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500"
+            >
+              Go to password reset page
+            </Link>
           </div>
         )}
         {showLogout && !notificationsEnabled && (
