@@ -564,6 +564,8 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
 
       try {
       if (activeGroupId) {
+        const ok = await crypto.ensureGroupKey(activeGroupId);
+        if (!ok) return;
         const content = await crypto.encryptGroup(trimmed, activeGroupId);
         const res = await apiFetch<{ message: Message }>(
           `/api/groups/${encodeURIComponent(activeGroupId)}/messages`,

@@ -22,6 +22,7 @@ export function EclipseApp() {
     mobileTab,
     activePeerId,
     activeGroupId,
+    cryptoReady,
     sendMessage,
     pingTyping,
   } = useEclipse();
@@ -60,7 +61,7 @@ export function EclipseApp() {
           <ChatInput
             onSend={sendMessage}
             onTyping={() => activePeerId && pingTyping(activePeerId)}
-            disabled={!activePeerId && !activeGroupId}
+            disabled={(!activePeerId && !activeGroupId) || !cryptoReady}
           />
         </main>
       </div>
