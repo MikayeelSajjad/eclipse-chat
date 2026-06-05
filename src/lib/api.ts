@@ -13,6 +13,10 @@ export async function apiFetch<T>(
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("eclipse:unauthorized"));
+      }
+
       let error =
         typeof body.error === "string" ? body.error : "Request failed";
       if (error === "Request failed" && res.status === 404) {

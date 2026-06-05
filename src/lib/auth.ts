@@ -1,11 +1,18 @@
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
+import { findUserById } from "@/lib/db";
 
 export const SESSION_COOKIE = "eclipse_user_id";
 
 export async function getSessionUserId(): Promise<string | null> {
   const store = await cookies();
-  return store.get(SESSION_COOKIE)?.value ?? null;
+  const userId = store.get(SESSION_COOKIE)?.value ?? null;
+  if (!userId) return null;
+
+  const user = await findUserById(userId);
+  if (!user || user.banned) return null;
+
+  return userId;
 }
 
 export function setSessionCookie(response: NextResponse, userId: string): void {

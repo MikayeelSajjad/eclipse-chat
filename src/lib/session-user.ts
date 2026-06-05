@@ -7,7 +7,7 @@ export async function buildSessionUser(
   userId: string
 ): Promise<SessionUser | null> {
   const user = await findUserById(userId);
-  if (!user) return null;
+  if (!user || user.banned) return null;
   const friendCount = await countAcceptedFriends(userId);
   return rowToSessionUser(user, friendCount);
 }

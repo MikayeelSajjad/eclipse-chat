@@ -128,6 +128,38 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  const clearSession = useCallback(() => {
+    const uid = currentUserRef.current?.id;
+    if (uid) {
+      crypto.clearIdentity(uid);
+    }
+    setCurrentUser(null);
+    setConversations([]);
+    setGroups([]);
+    setMessages([]);
+    setFriends({ accepted: [], incoming: [], outgoing: [] });
+    setSearchResults([]);
+    setActivePeerId(null);
+    setActiveGroupId(null);
+    setMobileTab("chats");
+    setTypingPeerId(null);
+    setNotificationsEnabled(false);
+    setLiveConnected(false);
+    setDecryptedById({});
+    lastSyncRef.current = 0;
+    notifiedIdsRef.current.clear();
+  }, [crypto]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      clearSession();
+    };
+    window.addEventListener("eclipse:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("eclipse:unauthorized", handleUnauthorized);
+    };
+  }, [clearSession]);
+
   const markPeerRead = useCallback((peerId: string) => {
     setLastReadAt((prev) => ({ ...prev, [peerId]: Date.now() }));
   }, []);
@@ -155,8 +187,12 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const res = await apiFetch<{ user: SessionUser }>("/api/auth/me");
-    if (res.ok) setCurrentUser(res.data.user);
-  }, []);
+    if (res.ok) {
+      setCurrentUser(res.data.user);
+    } else {
+      clearSession();
+    }
+  }, [clearSession]);
 
 
   const loadDmMessages = useCallback(async (peerId: string) => {
@@ -426,24 +462,9 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const uid = currentUser?.id;
     await apiFetch("/api/auth/logout", { method: "POST" });
-    if (uid) crypto.clearIdentity(uid);
-    setCurrentUser(null);
-    setConversations([]);
-    setGroups([]);
-    setMessages([]);
-    setFriends({ accepted: [], incoming: [], outgoing: [] });
-    setActivePeerId(null);
-    setActiveGroupId(null);
-    setSearchResults([]);
-    setMobileTab("chats");
-    setTypingPeerId(null);
-    setLiveConnected(false);
-    setDecryptedById({});
-    lastSyncRef.current = 0;
-    notifiedIdsRef.current.clear();
-  }, [currentUser, crypto]);
+    clearSession();
+  }, [clearSession]);
 
   const searchUsers = useCallback(async (query: string) => {
     if (!query.trim()) {
