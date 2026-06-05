@@ -9,6 +9,7 @@ export {
   updateUserPublicKey,
   updateUserNitro,
   updateUserRole,
+  updateUserBanned,
   getPublicKey,
   findUserByLsSubscriptionId,
 } from "./db/index";
