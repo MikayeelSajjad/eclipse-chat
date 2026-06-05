@@ -54,7 +54,7 @@ export async function POST(
   const message = await insertMessage(
     randomUUID(),
     userId,
-    groupId,
+    userId,
     content,
     groupId
   );
