@@ -12,55 +12,8 @@ interface ProfileCardProps {
 export function ProfileCard({ showLogout = true }: ProfileCardProps) {
   const { currentUser, logout, notificationsEnabled, enableNotifications } =
     useEclipse();
-  const crypto = useCrypto();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
   const tier = currentUser?.nitro_tier ?? "none";
   if (!currentUser) return null;
-
-  const handlePasswordReset = async () => {
-    setStatus("");
-    if (!currentPassword.trim() || !newPassword.trim()) {
-      setStatus("Please fill in both password fields.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await apiFetch("/api/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({
-          currentPassword: currentPassword.trim(),
-          newPassword: newPassword.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        setStatus(res.error || "Unable to reset password.");
-      } else {
-        const rotateErr = await crypto.rotatePrivateKeyPassword(
-          currentUser.id,
-          currentPassword.trim(),
-          newPassword.trim()
-        );
-        if (rotateErr) {
-          setStatus(
-            `Password updated, but local encryption keys must be reinitialized: ${rotateErr}`
-          );
-        } else {
-          setStatus("Password updated successfully.");
-          setCurrentPassword("");
-          setNewPassword("");
-        }
-      }
-    } catch (error) {
-      setStatus("Server error while resetting password.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="border-b border-slate-800 p-4 md:p-5">
