@@ -28,6 +28,7 @@ export function rowToUser(row: Row): DbUser {
     public_key: optStr(row, "public_key"),
     nitro_tier: (tier === "basic" || tier === "plus" ? tier : "none") as NitroTier,
     role: (role === "admin" ? "admin" : "member"),
+    banned: Boolean(row.banned && Number(row.banned) === 1),
     ls_customer_id:
       optStr(row, "ls_customer_id") ?? optStr(row, "stripe_customer_id"),
     ls_subscription_id:

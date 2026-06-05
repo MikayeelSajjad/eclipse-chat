@@ -9,7 +9,7 @@ const TIERS: NitroTier[] = ["none", "basic", "plus"];
 export default function AdminPage() {
   const { hydrated, currentUser } = useEclipse();
   const [query, setQuery] = useState("");
-  const [users, setUsers] = useState<Array<{ id: string; username: string; avatar_url: string | null; nitro_tier: NitroTier }>>([]);
+  const [users, setUsers] = useState<Array<{ id: string; username: string; avatar_url: string | null; nitro_tier: NitroTier; role?: string; banned?: boolean }>>([]);
   const [selectedUsername, setSelectedUsername] = useState<string>("");
   const [tier, setTier] = useState<NitroTier>("basic");
   const [status, setStatus] = useState<string>("");
@@ -80,6 +80,34 @@ export default function AdminPage() {
     }
   };
 
+  const handleBanToggle = async (ban: boolean) => {
+    setStatus("");
+    if (!selectedUser) {
+      setStatus("Please select a user to ban/unban.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/ban", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: selectedUser.username, action: ban ? "ban" : "unban" }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setStatus(payload.error || "Failed to update ban status.");
+      } else {
+        setStatus(`${payload.username} is now ${payload.banned ? "banned" : "unbanned"}.`);
+        // update local users list
+        setUsers((prev) => prev.map(u => u.username === payload.username ? { ...u, banned: payload.banned } : u));
+      }
+    } catch (error) {
+      setStatus("Server error while updating ban status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!hydrated) {
     return <div className="p-8 text-slate-300">Loading admin panel…</div>;
   }
@@ -124,9 +152,16 @@ export default function AdminPage() {
                       : "bg-slate-950 hover:bg-slate-900"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                     <span className="font-medium text-slate-100">{user.username}</span>
-                    <span className="text-xs text-slate-500">{nitroLabel(user.nitro_tier)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500">{nitroLabel(user.nitro_tier)}</span>
+                      {user.role === "admin" ? (
+                        <span className="text-xs text-amber-300">admin</span>
+                      ) : user.banned ? (
+                        <span className="text-xs text-red-400">banned</span>
+                      ) : null}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -166,6 +201,27 @@ export default function AdminPage() {
           >
             {loading ? "Granting…" : "Grant Nitro"}
           </button>
+
+          {selectedUser && (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleBanToggle(true)}
+                disabled={loading || selectedUser.role === "admin"}
+                className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60"
+              >
+                Ban User
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBanToggle(false)}
+                disabled={loading}
+                className="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                Unban User
+              </button>
+            </div>
+          )}
 
           {status && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-200">

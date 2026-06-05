@@ -11,6 +11,7 @@ export interface DbUser {
   public_key: string | null;
   nitro_tier: NitroTier;
   role: "member" | "admin";
+  banned: boolean;
   ls_customer_id: string | null;
   ls_subscription_id: string | null;
 }
@@ -48,6 +49,7 @@ export function rowToSessionUser(row: DbUser, friendCount: number) {
   return {
     id: row.id,
     username: row.username,
+    banned: row.banned,
     avatar_url: row.avatar_url,
     public_key: row.public_key,
     nitro_tier: tier,

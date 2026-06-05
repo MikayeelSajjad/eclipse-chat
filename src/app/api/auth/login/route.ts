@@ -30,6 +30,10 @@ export async function POST(request: Request) {
     );
   }
 
+  if (user.banned) {
+    return NextResponse.json({ error: "Account banned" }, { status: 403 });
+  }
+
   const sessionUser = await buildSessionUser(user.id);
   const response = NextResponse.json({ user: sessionUser });
   setSessionCookie(response, user.id);

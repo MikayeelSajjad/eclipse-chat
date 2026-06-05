@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
   avatar_url TEXT,
-  role TEXT NOT NULL DEFAULT 'member'
+  role TEXT NOT NULL DEFAULT 'member',
+  banned INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS messages (

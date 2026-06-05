@@ -4,6 +4,7 @@ import { rowToPublicUser, type DbUser, type NitroTier } from "./types";
 
 const USER_SELECT = `SELECT id, username, password, avatar_url,
   public_key, nitro_tier, role,
+  banned,
   COALESCE(ls_customer_id, stripe_customer_id) AS ls_customer_id,
   COALESCE(ls_subscription_id, stripe_subscription_id) AS ls_subscription_id
   FROM users`;
@@ -83,6 +84,16 @@ export async function updateUserRole(
   });
 }
 
+export async function updateUserBanned(
+  userId: string,
+  banned: boolean
+): Promise<void> {
+  await getClient().execute({
+    sql: "UPDATE users SET banned = ? WHERE id = ?",
+    args: [banned ? 1 : 0, userId],
+  });
+}
+
 export async function findUserByLsSubscriptionId(
   subscriptionId: string
 ): Promise<DbUser | undefined> {
@@ -102,7 +113,14 @@ export async function searchUsers(query: string, excludeUserId: string) {
           ORDER BY username ASC LIMIT 20`,
     args: [excludeUserId, pattern],
   });
-  return result.rows.map((row) => rowToPublicUser(rowToUser(row)));
+  return result.rows.map((row) => {
+    const u = rowToUser(row);
+    return {
+      ...rowToPublicUser(u as any),
+      role: u.role,
+      banned: u.banned,
+    };
+  });
 }
 
 export async function getPublicKey(userId: string): Promise<string | null> {
