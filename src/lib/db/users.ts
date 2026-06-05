@@ -44,12 +44,9 @@ export async function createUser(
   return rowToPublicUser({
     id,
     username: normalized,
-    password,
     avatar_url: avatarUrl,
     public_key: publicKey,
     nitro_tier: "none",
-    ls_customer_id: null,
-    ls_subscription_id: null,
   });
 }
 
