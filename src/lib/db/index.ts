@@ -11,6 +11,7 @@ export {
   updateUserPublicKey,
   updateUserNitro,
   updateUserRole,
+  updateUserBanned,
   getPublicKey,
   findUserByLsSubscriptionId,
 } from "./users";
