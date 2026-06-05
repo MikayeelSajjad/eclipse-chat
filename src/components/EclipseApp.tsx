@@ -12,6 +12,7 @@ import { FriendsPanel } from "./FriendsPanel";
 import { GroupsPanel } from "./GroupsPanel";
 import { MobileChatOverlay } from "./MobileChatOverlay";
 import { MobileNav } from "./MobileNav";
+import { ProfileCard } from "./ProfileCard";
 import { IconChats, IconFriends, IconGroups, IconProfile, IconEclipse } from "./icons";
 import { CryptoUnlockBanner } from "./CryptoUnlockBanner";
 
