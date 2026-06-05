@@ -437,13 +437,6 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     [crypto, loadConversations, loadFriends, loadGroups]
   );
 
-  const getDisplayContent = useCallback(
-    (message: Message) => {
-      return decryptedById[message.id] ?? crypto.previewContent(message.content);
-    },
-    [crypto, decryptedById]
-  );
-
   const login = useCallback(
     async (username: string, password: string): Promise<string | null> => {
       const res = await apiFetch<{ user: SessionUser }>("/api/auth/login", {
