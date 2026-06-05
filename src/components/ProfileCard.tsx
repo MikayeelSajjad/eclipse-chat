@@ -51,7 +51,7 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
             href="/admin"
             className="mt-4 block w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2.5 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
           >
-            Admin Nitro Panel
+            Admin Panel
           </a>
         )}
         {showLogout && !notificationsEnabled && (

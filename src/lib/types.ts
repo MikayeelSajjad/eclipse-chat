@@ -9,6 +9,7 @@ export interface User {
   public_key?: string | null;
   nitro_tier?: NitroTier;
   role?: "member" | "admin";
+  banned?: boolean;
 }
 
 export interface SessionUser extends User {

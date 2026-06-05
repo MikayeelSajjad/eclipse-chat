@@ -9,7 +9,7 @@ const TIERS: NitroTier[] = ["none", "basic", "plus"];
 export default function AdminPage() {
   const { hydrated, currentUser } = useEclipse();
   const [query, setQuery] = useState("");
-  const [users, setUsers] = useState<Array<{ id: string; username: string; avatar_url: string | null; nitro_tier: NitroTier; role?: string; banned?: boolean }>>([]);
+  const [users, setUsers] = useState<Array<{ id: string; username: string; avatar_url: string | null; nitro_tier: NitroTier; role: string; banned: boolean }>>([]);
   const [selectedUsername, setSelectedUsername] = useState<string>("");
   const [tier, setTier] = useState<NitroTier>("basic");
   const [status, setStatus] = useState<string>("");
@@ -56,7 +56,7 @@ export default function AdminPage() {
     setStatus("");
 
     if (!selectedUser) {
-      setStatus("Please select a user to grant Nitro.");
+      setStatus("Please select a user.");
       return;
     }
 
@@ -69,12 +69,12 @@ export default function AdminPage() {
       });
       const payload = await response.json();
       if (!response.ok) {
-        setStatus(payload.error || "Failed to grant Nitro.");
+        setStatus(payload.error || "Failed to update Nitro.");
       } else {
-        setStatus(`Granted ${nitroLabel(payload.tier)} to ${payload.username}.`);
+        setStatus(`Updated ${payload.username} to ${nitroLabel(payload.tier)}.`);
       }
     } catch (error) {
-      setStatus("Server error while granting Nitro.");
+      setStatus("Server error while updating Nitro.");
     } finally {
       setLoading(false);
     }
@@ -123,9 +123,9 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 text-slate-100">
       <div className="rounded-3xl border border-slate-800/90 bg-slate-950/80 p-8 shadow-xl shadow-slate-950/20">
-        <h1 className="text-3xl font-semibold text-white">Admin Nitro Panel</h1>
+        <h1 className="text-3xl font-semibold text-white">Admin Panel</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Grant any user Nitro Basic, Nitro+, or revoke Nitro.
+          Manage user Nitro tiers, bans, and moderation tools.
         </p>
 
         <form onSubmit={handleGrant} className="mt-8 space-y-6">
@@ -152,19 +152,45 @@ export default function AdminPage() {
                       : "bg-slate-950 hover:bg-slate-900"
                   }`}
                 >
-                    <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="font-medium text-slate-100">{user.username}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-slate-500">{nitroLabel(user.nitro_tier)}</span>
                       {user.role === "admin" ? (
-                        <span className="text-xs text-amber-300">admin</span>
+                        <span className="text-xs rounded-full bg-amber-500/10 px-2 py-1 text-amber-200">ADMIN</span>
                       ) : user.banned ? (
-                        <span className="text-xs text-red-400">banned</span>
+                        <span className="text-xs rounded-full bg-red-500/10 px-2 py-1 text-red-300">BANNED</span>
                       ) : null}
                     </div>
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+
+          {selectedUser && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+              <h2 className="text-sm font-semibold text-slate-100">Selected user</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl bg-slate-950 p-4">
+                  <p className="text-xs uppercase text-slate-400">Username</p>
+                  <p className="mt-1 text-base font-medium text-slate-100">{selectedUser.username}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-950 p-4">
+                  <p className="text-xs uppercase text-slate-400">Role</p>
+                  <p className="mt-1 text-base font-medium text-slate-100">{selectedUser.role}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-950 p-4">
+                  <p className="text-xs uppercase text-slate-400">Nitro</p>
+                  <p className="mt-1 text-base font-medium text-slate-100">{nitroLabel(selectedUser.nitro_tier)}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-950 p-4">
+                  <p className="text-xs uppercase text-slate-400">Status</p>
+                  <p className="mt-1 text-base font-medium text-slate-100">
+                    {selectedUser.banned ? "Banned" : "Active"}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -199,7 +225,7 @@ export default function AdminPage() {
             disabled={loading}
             className="w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Granting…" : "Grant Nitro"}
+            {loading ? "Updating…" : "Update Nitro"}
           </button>
 
           {selectedUser && (
