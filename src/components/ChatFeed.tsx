@@ -15,6 +15,7 @@ export function ChatFeed() {
     getActiveGroup,
     typingPeerId,
     getDisplayContent,
+    sendError,
   } = useEclipse();
   const bottomRef = useRef<HTMLDivElement>(null);
   const friend = getActiveFriend();
@@ -48,6 +49,11 @@ export function ChatFeed() {
             isOwn={m.sender_id === currentUser.id}
           />
         ))}
+        {sendError && (
+          <div className="mx-4 rounded-2xl border border-red-500/20 bg-red-950/50 px-4 py-3 text-sm text-red-200">
+            {sendError}
+          </div>
+        )}
         {isTyping && friend && <TypingIndicator name={friend.username} />}
         {activeGroupId && group && messages.length === 0 && (
           <p className="text-center text-sm text-slate-500 py-8">

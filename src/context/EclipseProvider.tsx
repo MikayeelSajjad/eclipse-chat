@@ -52,6 +52,7 @@ interface EclipseContextValue {
   typingPeerId: UserId | null;
   notificationsEnabled: boolean;
   cryptoReady: boolean;
+  sendError: string | null;
   decryptedById: Record<string, string>;
   unlockEncryption: (password: string) => Promise<string | null>;
   enableNotifications: () => Promise<boolean>;
@@ -106,6 +107,7 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("chats");
   const [typingPeerId, setTypingPeerId] = useState<UserId | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [lastReadAt, setLastReadAt] = useState<Record<string, number>>({});
   const [decryptedById, setDecryptedById] = useState<Record<string, string>>({});
 
@@ -435,6 +437,13 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     [crypto, loadConversations, loadFriends, loadGroups]
   );
 
+  const getDisplayContent = useCallback(
+    (message: Message) => {
+      return decryptedById[message.id] ?? crypto.previewContent(message.content);
+    },
+    [crypto, decryptedById]
+  );
+
   const login = useCallback(
     async (username: string, password: string): Promise<string | null> => {
       const res = await apiFetch<{ user: SessionUser }>("/api/auth/login", {
@@ -560,37 +569,55 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !currentUser) return;
-      if (!crypto.cryptoReady) return;
+      if (!crypto.cryptoReady) {
+        setSendError(CRYPTO_UNLOCK_MSG);
+        return;
+      }
+
+      setSendError(null);
 
       try {
-      if (activeGroupId) {
-        const ok = await crypto.ensureGroupKey(activeGroupId);
-        if (!ok) return;
-        const content = await crypto.encryptGroup(trimmed, activeGroupId);
-        const res = await apiFetch<{ message: Message }>(
-          `/api/groups/${encodeURIComponent(activeGroupId)}/messages`,
-          { method: "POST", body: JSON.stringify({ content }) }
-        );
-        if (!res.ok) return;
-        setMessages((prev) => mergeMessages(prev, [res.data.message]));
-      } else if (activePeerId) {
-        const content = await crypto.encryptDm(trimmed, activePeerId);
-        const res = await apiFetch<{ message: Message }>("/api/messages", {
-          method: "POST",
-          body: JSON.stringify({
-            receiver_id: activePeerId,
-            content,
-          }),
-        });
-        if (!res.ok) return;
-        setMessages((prev) => mergeMessages(prev, [res.data.message]));
-      } else return;
+        if (activeGroupId) {
+          const ok = await crypto.ensureGroupKey(activeGroupId);
+          if (!ok) {
+            setSendError("Unable to unlock the group encryption key.");
+            return;
+          }
+          const content = await crypto.encryptGroup(trimmed, activeGroupId);
+          const res = await apiFetch<{ message: Message }>(
+            `/api/groups/${encodeURIComponent(activeGroupId)}/messages`,
+            { method: "POST", body: JSON.stringify({ content }) }
+          );
+          if (!res.ok) {
+            setSendError(res.error);
+            return;
+          }
+          setMessages((prev) => mergeMessages(prev, [res.data.message]));
+        } else if (activePeerId) {
+          const content = await crypto.encryptDm(trimmed, activePeerId);
+          const res = await apiFetch<{ message: Message }>("/api/messages", {
+            method: "POST",
+            body: JSON.stringify({
+              receiver_id: activePeerId,
+              content,
+            }),
+          });
+          if (!res.ok) {
+            setSendError(res.error);
+            return;
+          }
+          setMessages((prev) => mergeMessages(prev, [res.data.message]));
+        } else return;
 
-      lastSyncRef.current = Date.now();
-      await runLiveSync();
-      setTypingPeerId(null);
+        lastSyncRef.current = Date.now();
+        await runLiveSync();
+        setTypingPeerId(null);
       } catch (e) {
-        if (e instanceof Error && e.message === CRYPTO_LOCKED) return;
+        if (e instanceof Error && e.message === CRYPTO_LOCKED) {
+          setSendError(CRYPTO_UNLOCK_MSG);
+          return;
+        }
+        setSendError("Could not send message.");
         throw e;
       }
     },
@@ -745,6 +772,7 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       createGroup,
       inviteToGroup,
       startCheckout,
+      sendError,
     }),
     [
       hydrated,
@@ -763,6 +791,7 @@ export function EclipseProvider({ children }: { children: ReactNode }) {
       notificationsEnabled,
       crypto.cryptoReady,
       decryptedById,
+      sendError,
       unlockEncryption,
       enableNotifications,
       isPeerUnread,
