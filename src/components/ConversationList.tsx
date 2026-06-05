@@ -6,9 +6,10 @@ import { encryptedPreview, isEncryptedPayload } from "@/lib/crypto/e2e";
 
 interface ConversationListProps {
   onSelect?: () => void;
+  showGroups?: boolean;
 }
 
-export function ConversationList({ onSelect }: ConversationListProps) {
+export function ConversationList({ onSelect, showGroups = true }: ConversationListProps) {
   const {
     currentUser,
     conversations,
@@ -83,50 +84,54 @@ export function ConversationList({ onSelect }: ConversationListProps) {
         )}
       </ul>
 
-      <div className="border-t border-b border-slate-800 px-4 py-3 mt-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Groups 🔒
-        </h2>
-      </div>
-      <ul className="flex-1 overflow-y-auto overscroll-contain">
-        {groups.length === 0 ? (
-          <li className="px-4 py-6 text-center text-sm text-slate-500">
-            {currentUser.can_create_groups
-              ? "Create a group in the Groups tab."
-              : "Get Nitro Basic to create groups."}
-          </li>
-        ) : (
-          groups.map((g) => {
-            const isActive = activeGroupId === g.id;
-            return (
-              <li key={g.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    openGroup(g.id);
-                    onSelect?.();
-                  }}
-                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
-                    isActive
-                      ? "bg-indigo-950/40 border-l-2 border-indigo-500"
-                      : "border-l-2 border-transparent hover:bg-slate-900/50"
-                  }`}
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600/30 font-bold text-indigo-300">
-                    {g.name.slice(0, 1).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-slate-100">{g.name}</p>
-                    <p className="truncate text-sm text-slate-500">
-                      {preview(g.lastMessage?.content)}
-                    </p>
-                  </div>
-                </button>
+      {showGroups && (
+        <>
+          <div className="border-t border-b border-slate-800 px-4 py-3 mt-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Groups 🔒
+            </h2>
+          </div>
+          <ul className="flex-1 overflow-y-auto overscroll-contain">
+            {groups.length === 0 ? (
+              <li className="px-4 py-6 text-center text-sm text-slate-500">
+                {currentUser.can_create_groups
+                  ? "Create a group in the Groups tab."
+                  : "Get Nitro Basic to create groups."}
               </li>
-            );
-          })
-        )}
-      </ul>
+            ) : (
+              groups.map((g) => {
+                const isActive = activeGroupId === g.id;
+                return (
+                  <li key={g.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openGroup(g.id);
+                        onSelect?.();
+                      }}
+                      className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+                        isActive
+                          ? "bg-indigo-950/40 border-l-2 border-indigo-500"
+                          : "border-l-2 border-transparent hover:bg-slate-900/50"
+                      }`}
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600/30 font-bold text-indigo-300">
+                        {g.name.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-slate-100">{g.name}</p>
+                        <p className="truncate text-sm text-slate-500">
+                          {preview(g.lastMessage?.content)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

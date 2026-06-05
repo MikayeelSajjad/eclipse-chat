@@ -57,17 +57,15 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
         )}
         {showLogout && (
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-            <h2 className="text-sm font-semibold text-slate-100">
-              Change password
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-100">Settings</h2>
             <p className="mt-2 text-xs text-slate-500">
-              Manage your password on a separate secure page.
+              Manage your account, password, and app preferences from the settings page.
             </p>
             <Link
-              href="/password-reset"
+              href="/profile"
               className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500"
             >
-              Go to password reset page
+              Open profile
             </Link>
           </div>
         )}
