@@ -18,6 +18,7 @@ import {
   encryptForPublicKey,
   encryptWithGroupKey,
   exportGroupKeyRaw,
+  exportPrivateKeyEncrypted,
   generateGroupKey,
   generateIdentity,
   importGroupKeyRaw,
@@ -49,6 +50,11 @@ interface CryptoContextValue {
   ) => Promise<string>;
   decryptOwnDm: (content: string, peerId: string) => Promise<string>;
   previewContent: (content: string) => string;
+  rotatePrivateKeyPassword: (
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<string | null>;
   prepareGroupKeysForMembers: (
     memberIds: string[]
   ) => Promise<{
@@ -234,6 +240,39 @@ export function CryptoProvider({ children }: { children: ReactNode }) {
     return content;
   }, []);
 
+  const rotatePrivateKeyPassword = useCallback(
+    async (
+      userId: string,
+      currentPassword: string,
+      newPassword: string
+    ): Promise<string | null> => {
+      const stored = loadPrivateKeyEncrypted(userId);
+      if (!stored) {
+        return "No local encryption keys available";
+      }
+
+      let key = privateKeyRef.current;
+      if (!key) {
+        try {
+          key = await unlockPrivateKey(currentPassword, stored);
+        } catch {
+          return "Wrong current password or corrupted local encryption keys";
+        }
+      }
+
+      try {
+        const encrypted = await exportPrivateKeyEncrypted(key, newPassword);
+        savePrivateKeyEncrypted(userId, encrypted);
+        privateKeyRef.current = key;
+        setCryptoReady(true);
+        return null;
+      } catch {
+        return "Could not update local encryption key storage";
+      }
+    },
+    []
+  );
+
   const prepareGroupKeysForMembers = useCallback(
     async (
       memberIds: string[]
@@ -331,6 +370,7 @@ export function CryptoProvider({ children }: { children: ReactNode }) {
     decryptMessage,
     decryptOwnDm,
     previewContent,
+    rotatePrivateKeyPassword,
     prepareGroupKeysForMembers,
     storeGroupKeyRaw,
     loadGroupKey,

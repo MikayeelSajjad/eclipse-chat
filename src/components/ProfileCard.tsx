@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { useCrypto } from "@/context/CryptoProvider";
 import { useEclipse } from "@/context/EclipseProvider";
+import { apiFetch } from "@/lib/api";
 import { Avatar } from "./Avatar";
 import { IconEclipse } from "./icons";
 
@@ -11,8 +14,55 @@ interface ProfileCardProps {
 export function ProfileCard({ showLogout = true }: ProfileCardProps) {
   const { currentUser, logout, notificationsEnabled, enableNotifications } =
     useEclipse();
+  const crypto = useCrypto();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
   const tier = currentUser?.nitro_tier ?? "none";
   if (!currentUser) return null;
+
+  const handlePasswordReset = async () => {
+    setStatus("");
+    if (!currentPassword.trim() || !newPassword.trim()) {
+      setStatus("Please fill in both password fields.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiFetch("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: currentPassword.trim(),
+          newPassword: newPassword.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        setStatus(res.error || "Unable to reset password.");
+      } else {
+        const rotateErr = await crypto.rotatePrivateKeyPassword(
+          currentUser.id,
+          currentPassword.trim(),
+          newPassword.trim()
+        );
+        if (rotateErr) {
+          setStatus(
+            `Password updated, but local encryption keys must be reinitialized: ${rotateErr}`
+          );
+        } else {
+          setStatus("Password updated successfully.");
+          setCurrentPassword("");
+          setNewPassword("");
+        }
+      }
+    } catch (error) {
+      setStatus("Server error while resetting password.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="border-b border-slate-800 p-4 md:p-5">
@@ -53,6 +103,47 @@ export function ProfileCard({ showLogout = true }: ProfileCardProps) {
           >
             Admin Panel
           </a>
+        )}
+        {showLogout && (
+          <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+            <h2 className="text-sm font-semibold text-slate-100">
+              Change password
+            </h2>
+            <p className="mt-2 text-xs text-slate-500">
+              Use your current password to set a new login password.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm font-medium text-slate-200">
+                Current password
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-500"
+              />
+              <label className="block text-sm font-medium text-slate-200">
+                New password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-500"
+              />
+              <button
+                type="button"
+                onClick={handlePasswordReset}
+                disabled={loading}
+                className="w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Updating…" : "Reset password"}
+              </button>
+              {status && (
+                <p className="text-sm text-slate-200">{status}</p>
+              )}
+            </div>
+          </div>
         )}
         {showLogout && !notificationsEnabled && (
           <button

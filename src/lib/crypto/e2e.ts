@@ -81,6 +81,27 @@ export async function generateIdentity(password: string): Promise<{
   };
 }
 
+export async function exportPrivateKeyEncrypted(
+  privateKey: CryptoKey,
+  password: string
+): Promise<string> {
+  const privateJwk = await crypto.subtle.exportKey("jwk", privateKey);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const wrapKey = await derivePasswordKey(password, salt);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const privateBytes = new TextEncoder().encode(JSON.stringify(privateJwk));
+  const cipher = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    wrapKey,
+    privateBytes
+  );
+  return JSON.stringify({
+    salt: b64Encode(salt.buffer),
+    iv: b64Encode(iv.buffer),
+    data: b64Encode(cipher),
+  });
+}
+
 export async function unlockPrivateKey(
   password: string,
   encrypted: string
