@@ -31,7 +31,9 @@ export interface DbFriend {
   status: "pending" | "accepted";
 }
 
-export function rowToPublicUser(row: DbUser) {
+export function rowToPublicUser(
+  row: Pick<DbUser, "id" | "username" | "avatar_url" | "public_key" | "nitro_tier">
+) {
   return {
     id: row.id,
     username: row.username,
